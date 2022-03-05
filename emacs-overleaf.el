@@ -54,15 +54,6 @@
   "non-nil if the remote is overleaf repo."
   (string-match-p (regexp-quote "overleaf") (overleaf--remote-homepage)))
 
-(defvar-local overleaf-auto-sync "ask"
-  "Determines how saving a buffer will trigger pushing changes to Overleaf.
-
-Should be one of the following strings:
-- `ask':
-- `always':
-- `never':
-- nil:
-")
 
 (defvar-local overleaf-directory nil
   "A project directory to sync using Overleaf.")
@@ -109,6 +100,18 @@ When 0, no border is showed."
   :group 'overleaf
   :type 'function)
 
+(defcustom overleaf-auto-sync "ask"
+  "Determines how saving a buffer will trigger pushing changes to Overleaf.
+
+Should be one of the following strings:
+- `ask':
+- `always':
+- `never':
+- nil:
+"
+  :group 'overleaf
+  :type 'string)
+
 (defface overleaf-posframe-face
   '((t :inherit default))
   "The background and foreground color of the posframe.
@@ -145,14 +148,24 @@ Only `background` is used in this face."
       (magit-run-git-async "pull" "origin" "master"))))
 
 
+(defun overleaf-manual-save ()
+  "Explicitly required save of the current project and push to overleaf."
+  (interactive)
+  (when (or (eq major-mode 'latex-mode) (eq major-mode 'bibtex-mode))
+    (overleaf-push overleaf-directory "always" overleaf-last-sync-time)))
+
+
 (defun overleaf-after-save ()
+  "Save the current project and push it to overleaf."
   (when (or (eq major-mode 'latex-mode) (eq major-mode 'bibtex-mode))
     (overleaf-push overleaf-directory overleaf-auto-sync overleaf-last-sync-time)))
 
 
 (defun overleaf-setup-push ()
   "Add hook for local overleaf push."
-    (add-hook 'after-save-hook #'overleaf-after-save))
+  (when (or (string= overleaf-auto-sync "ask")
+            (string= overleaf-auto-sync "always"))
+    (add-hook 'after-save-hook #'overleaf-after-save)))
 
 
 (defun overleaf-setup ()
@@ -160,7 +173,7 @@ Only `background` is used in this face."
   (progn
     (overleaf--set-directory)
     (add-hook 'projectile-after-switch-project-hook #'overleaf-after-switch-project)
-    (add-hook 'after-save-hook #'overleaf-after-save)))
+    (overleaf-setup-push)))
 
 
 (defun overleaf-push (directory &optional auto-sync last-sync-time)
